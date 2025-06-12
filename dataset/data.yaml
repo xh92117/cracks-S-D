@@ -1,0 +1,12 @@
+# 本项目下的dataset中的数据集仅供大家参考存放格式和调试代码是否能跑通
+# 数据集配置
+path: ./dataset  # 数据集根目录
+train: images/train  # 训练集图片路径
+val: images/val  # 验证集图片路径
+test: images/test  # 测试集图片路径
+
+# 类别数量
+nc: 1
+
+# 类别名称
+names: ['ship']
