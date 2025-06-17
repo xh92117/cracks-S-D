@@ -99,7 +99,6 @@ outputs/
 
 # Model files (large files)
 *.safetensors
-models/
 weights/
 
 # Cache
