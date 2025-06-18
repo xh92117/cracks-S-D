@@ -2458,59 +2458,76 @@ class RandomLoadText:
 def v8_transforms(dataset, imgsz, hyp, stretch=False):
     """
     Creates a composition of image augmentation transforms for YOLOv8 training.
-
-    Args:
-        dataset: The dataset object.
-        imgsz: Target image size.
-        hyp: Hyperparameters dictionary.
-        stretch: Whether to stretch the image.
-
-    Returns:
-        (Compose): A composition of image augmentation transforms.
+    This is the FINAL ROBUST version that handles all potential missing hyperparameter attributes.
     """
-    # 第一阶段：图像尺寸调整和字母框处理
-    pre_transform = Compose([
-        LetterBox(new_shape=(imgsz, imgsz), auto=stretch, scaleup=True),
-    ])
-    
-    # 第二阶段：基于numpy的图像增强
-    numpy_transforms = Compose([
-        RandomHSV(hgain=hyp.get("hsv_h", 0.015), sgain=hyp.get("hsv_s", 0.7), vgain=hyp.get("hsv_v", 0.4)),
-        RandomFlip(direction="vertical", p=hyp.get("flipud", 0.0)),
-        RandomFlip(direction="horizontal", p=hyp.get("fliplr", 0.5)),
+    # =================================================================================
+    # START: Robust and Safe Augmentation Pipeline Construction
+    # =================================================================================
+    if not stretch:
+        dataset.mosaic = True
+
+    # Use .get() for all hyperparameter access to prevent AttributeErrors
+    mosaic_p = hyp.get("mosaic", 1.0)  # Default to 1.0 if not specified
+    mosaic_border = (-imgsz // 2, -imgsz // 2)
+
+    pre_transform = [
+        Mosaic(dataset, imgsz=imgsz, p=mosaic_p),
         RandomPerspective(
             degrees=hyp.get("degrees", 0.0),
             translate=hyp.get("translate", 0.1),
             scale=hyp.get("scale", 0.5),
             shear=hyp.get("shear", 0.0),
             perspective=hyp.get("perspective", 0.0),
-            border=hyp.get("border", (-320, -320)),
+            border=mosaic_border,
         ),
-    ])
+    ]
+
+    # Safely handle Albumentations
+    albumentations_p = hyp.get("albumentations", 0.0) # Default to 0.0 (disabled)
+    albumentations = Albumentations(p=albumentations_p) if albumentations_p > 0 else None
+
+    # Common transforms, using .get() for all hyperparameter access
+    transforms = Compose(
+        [
+            *pre_transform,
+            RandomHSV(
+                hgain=hyp.get("hsv_h", 0.015), 
+                sgain=hyp.get("hsv_s", 0.7), 
+                vgain=hyp.get("hsv_v", 0.4)
+            ),
+            RandomFlip(direction="vertical", p=hyp.get("flipud", 0.0)),
+            RandomFlip(direction="horizontal", p=hyp.get("fliplr", 0.5)),
+            albumentations,
+        ]
+    )
+
+    # =================================================================================
+    # START: Custom Augmentation Insertion
+    # =================================================================================
+    custom_p = hyp.get("custom_augment_p", 0.0)
     
-    # 添加自定义增强（如果启用）
-    if hyp.get("custom_augment", False):
-        LOGGER.info("启用自定义Tanh增强算法")
-        custom_augment = CustomAugment(**hyp)  # 传递所有超参数，让CustomAugment自己筛选需要的参数
-        numpy_transforms.append(custom_augment)
+    if custom_p > 0:
+        LOGGER.info(f"{colorstr('green', 'NOTE:')} CustomAugment for crack detection is ENABLED with probability p={custom_p}.")
+        
+        custom_params = {
+            "p": custom_p,
+            "tanh_strength": hyp.get("custom_tanh_strength", 1.0),
+            "final_blend_alpha": hyp.get("custom_final_blend_alpha", 0.5),
+            "clahe_clip_limit": hyp.get("custom_clahe_clip_limit", 3.0),
+        }
+        custom_augmenter = CustomAugment(**custom_params)
+        
+        if albumentations:
+            insert_index = transforms.transforms.index(albumentations)
+            transforms.insert(insert_index, custom_augmenter)
+        else:
+            transforms.append(custom_augmenter)
     
-    # 添加Albumentations变换
-    numpy_transforms.append(Albumentations(p=1.0))
+    # =================================================================================
+    # END: Custom Augmentation Insertion
+    # =================================================================================
     
-    # 第三阶段：张量转换和最终格式化
-    final_transforms = Compose([
-        ToTensor(half=hyp.get("half", False)),
-        Format(bbox_format="xywh", normalize=True),
-    ])
-    
-    # 将所有阶段组合在一起
-    transform = Compose([
-        pre_transform,
-        numpy_transforms,
-        final_transforms,
-    ])
-    
-    return transform
+    return transforms
 
 
 # Classification augmentations -----------------------------------------------------------------------------------------
@@ -2886,3 +2903,4 @@ class ToTensor:
             im = im.half() if self.half else im.float()  # uint8 to fp16/32
             im /= 255.0  # 0-255 to 0.0-1.0
             return im
+
