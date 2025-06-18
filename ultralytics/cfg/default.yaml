@@ -110,13 +110,20 @@ cfg: null  # (str, optional) for overriding defaults.yaml
 # Tracker settings ------------------------------------------------------------------------------------------------------
 tracker: botsort.yaml  # (str) tracker type, choices=[botsort.yaml, bytetrack.yaml]
 
-# Custom augmentation parameters
-custom_augment: 1  # (bool) whether to enable custom augmentation
-custom_augment_p: 0.5  # (float) custom augmentation probability
-custom_augment_black_thresh: 0.05  # (float) black threshold for custom augmentation
-custom_augment_white_thresh: 0.1  # (float) white threshold for custom augmentation
-custom_augment_intensity: 0.4  # (float) intensity for custom augmentation
-custom_augment_sigma: 5  # (float) sigma for custom augmentation
+# Custom augmentation parameters (Tanh Histogram Equalization for Crack Detection)
+custom_augment: True  # (bool) whether to enable custom Tanh augmentation
+custom_augment_p: 0.5  # (float) probability of applying custom augmentation (0.0-1.0)
+custom_augment_tanh_strength: 1.0  # (float) Tanh mapping intensity (<1=weaker, =1=normal, >1=stronger)
+custom_augment_blend_alpha: 0.5  # (float) final blending weight (0.0=original, 1.0=fully enhanced)
+custom_augment_clahe_limit: 3.0  # (float) CLAHE contrast limiting threshold (1.0-8.0)
+custom_augment_preserve_color: True  # (bool) preserve color information (True=LAB processing, False=grayscale)
+custom_augment_sharpen_alpha: 1.5  # (float) unsharp masking positive weight for original image
+custom_augment_sharpen_beta: -0.5  # (float) unsharp masking negative weight for blurred image
+
+# Preset configurations for different scenarios:
+# Conservative: p=0.3, tanh_strength=0.7, blend_alpha=0.3, clahe_limit=2.0
+# Default: p=0.5, tanh_strength=1.0, blend_alpha=0.5, clahe_limit=3.0  
+# Aggressive: p=0.8, tanh_strength=1.5, blend_alpha=0.8, clahe_limit=4.0
 
 # Data augmentation parameters
 mosaic: 1.0  # (float) mosaic augmentation probability
