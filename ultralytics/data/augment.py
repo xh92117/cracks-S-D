@@ -2489,15 +2489,9 @@ def v8_transforms(dataset, imgsz, hyp, stretch=False):
     ])
     
     # 添加自定义增强（如果启用）
-    if hyp.get("custom_augment", 0):
-        LOGGER.info("启用自定义增强算法")
-        custom_augment = CustomAugment(
-            p=hyp.get("custom_augment_p", 0.5),
-            black_thresh=hyp.get("custom_augment_black_thresh", 0.05),
-            white_thresh=hyp.get("custom_augment_white_thresh", 0.1),
-            intensity=hyp.get("custom_augment_intensity", 0.4),
-            sigma=hyp.get("custom_augment_sigma", 5)
-        )
+    if hyp.get("custom_augment", False):
+        LOGGER.info("启用自定义Tanh增强算法")
+        custom_augment = CustomAugment(**hyp)  # 传递所有超参数，让CustomAugment自己筛选需要的参数
         numpy_transforms.append(custom_augment)
     
     # 添加Albumentations变换
